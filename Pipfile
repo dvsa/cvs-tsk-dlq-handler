@@ -1,0 +1,19 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+boto3_type_annotations_with_docs = "*"
+
+[packages]
+aws_xray_sdk = "*"
+boto3 = "*"
+boto3_type_annotations = "*"
+
+
+[requires]
+python_version = "3.7"
+
+[scripts]
+handler = "python dlq_handler.py"

@@ -133,7 +133,6 @@ venv.bak/
 .mypy_cache/
 
 # Repo Specific
-/build.sh
 /*.zip
 /*.txt
 /.idea/

@@ -71,7 +71,7 @@ def requeue(records) -> None:
         request_list.append({
             'Id': message['messageId'],
             'MessageBody': message['body'],
-            'MessageAttributes': message['attributes'],
+            'MessageAttributes': message['messageAttributes'],
         })
 
     subsegment.put_metadata("Message List", request_list)

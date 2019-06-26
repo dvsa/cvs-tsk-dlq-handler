@@ -108,7 +108,7 @@ def requeue(records) -> None:
 
 
 def handler(event: sqs_event, context: LambdaContext) -> str:
-    xray = xray_recorder.current_segment()
+    xray = xray_recorder.current_subsegment()
     xray.put_metadata('event', event)
     xray.put_metadata('context', context)
     records: List[Dict] = event.get('Records')

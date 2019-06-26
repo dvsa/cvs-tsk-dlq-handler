@@ -108,9 +108,10 @@ def requeue(records) -> None:
 
 
 def handler(event: sqs_event, context: LambdaContext) -> str:
-    xray = xray_recorder.current_subsegment()
+    xray = xray_recorder.begin_subsegment('Invocation Data')
     xray.put_metadata('event', event)
     xray.put_metadata('context', context)
+    xray_recorder.end_subsegment()
     records: List[Dict] = event.get('Records')
     requeue(records)
     return json.dumps({"Result": send_email(records)})

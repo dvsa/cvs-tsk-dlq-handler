@@ -62,7 +62,7 @@ def send_email(records: List[Dict]) -> str:
 @xray_recorder.capture('Requeue Messages')
 def requeue(records) -> None:
     subsegment: Subsegment = xray_recorder.current_subsegment()
-    sqs: SClient = boto3.client('sqs')
+    sqs: SClient = boto3.client(service_name='sqs', endpoint_url='https://sqs.eu-west-1.amazonaws.com')
     sqs_arn = records[0].get('eventSourceARN').split(':')
     queue_url = f"https://sqs.{sqs_arn[3]}.amazonaws.com/{sqs_arn[4]}/{sqs_arn[5]}"
 
@@ -108,6 +108,9 @@ def requeue(records) -> None:
 
 
 def handler(event: sqs_event, context: LambdaContext) -> str:
+    xray = xray_recorder.current_segment()
+    xray.put_metadata('event', event)
+    xray.put_metadata('context', context)
     records: List[Dict] = event.get('Records')
     requeue(records)
     return json.dumps({"Result": send_email(records)})

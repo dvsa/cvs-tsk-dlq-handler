@@ -10,7 +10,6 @@ import boto3
 from aws_xray_sdk.core import patch_all, xray_recorder
 from aws_xray_sdk.core.models.subsegment import Subsegment
 from boto3_type_annotations.lambda_ import Client
-from boto3_type_annotations.sqs import Client as SClient
 
 import sqs_event
 from lambda_context import LambdaContext
@@ -59,61 +58,12 @@ def send_email(records: List[Dict]) -> str:
     return "Success!" if not partial_fail else "Partial Fail!"
 
 
-@xray_recorder.capture('Requeue Messages')
-def requeue(records) -> None:
-    subsegment: Subsegment = xray_recorder.current_subsegment()
-    sqs: SClient = boto3.client(service_name='sqs', endpoint_url='https://sqs.eu-west-1.amazonaws.com')
-    sqs_arn = records[0].get('eventSourceARN').split(':')
-    queue_url = f"https://sqs.{sqs_arn[3]}.amazonaws.com/{sqs_arn[4]}/{sqs_arn[5]}"
-
-    request_list: List[Dict] = []
-    for message in records:
-        request_list.append({
-            'Id': message['messageId'],
-            'MessageBody': message['body'],
-            'MessageAttributes': message['messageAttributes'],
-        })
-
-    subsegment.put_metadata("Message List", request_list)
-    response = sqs.send_message_batch(QueueUrl=queue_url, Entries=request_list)
-    message_ids: List[str] = [x['MessageId'] for x in response['Successful']]
-
-    i = 0
-    while len(message_ids) != 0:
-        loop_subsegment = xray_recorder.begin_subsegment(f'Increase Timeout Attempt {i}')
-        response = sqs.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=10, WaitTimeSeconds=5)
-        loop_subsegment.put_metadata("Receive Message Response", response)
-
-        received_messages: List[Dict] = []
-        for message in response['Messages']:
-            placed_message = True if message['MessageId'] in message_ids else False
-            received_messages.append({
-                "Id": message['MessageId'],
-                "ReceiptHandle": message['ReceiptHandle'],
-                "VisibilityTimeout": 43200 if placed_message else 0
-            })
-
-            if placed_message:
-                message_ids.remove(message['MessageId'])
-
-        if len(received_messages) == 0:
-            logger.info('Did not receive any messages')
-            xray_recorder.end_subsegment()
-            break
-
-        response = sqs.change_message_visibility_batch(QueueUrl=queue_url, Entries=received_messages)
-        loop_subsegment.put_metadata("Change Visibility Response", response)
-        i = i + 1
-        xray_recorder.end_subsegment()
-
-
 def handler(event: sqs_event, context: LambdaContext) -> str:
-    xray = xray_recorder.begin_subsegment('Invocation Data')
+    xray: Subsegment = xray_recorder.begin_subsegment('Invocation Data')
     xray.put_metadata('event', event)
     xray.put_metadata('context', context)
     xray_recorder.end_subsegment()
     records: List[Dict] = event.get('Records')
-    requeue(records)
     return json.dumps({"Result": send_email(records)})
 
 

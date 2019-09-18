@@ -27,6 +27,10 @@ def send_email(records: List[Dict]) -> str:
     partial_fail = False
     try:
         for record in records:
+            body: Dict[str, str] = json.loads(record.get('body'))
+            if body.get('testStationEmail') == 'teststationname@dvsa.gov.uk':
+                # Automation, should break
+                break
             current_time = f"{datetime.datetime.utcnow().isoformat(timespec='microseconds')}Z"
 
             payload = {
